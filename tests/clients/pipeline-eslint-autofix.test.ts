@@ -123,4 +123,39 @@ describe("runAutofix — eslint single-spawn --fix (#453)", () => {
 
 		expect(result.fixedCount).toBeGreaterThan(0);
 	});
+
+	it("routes oxlint autofix through the same bounded invocation as lint", async () => {
+		fs.unlinkSync(path.join(env.tmpDir, ".eslintrc.json"));
+		fs.writeFileSync(path.join(env.tmpDir, ".oxlintrc.json"), "{}");
+		fs.writeFileSync(
+			path.join(env.tmpDir, "package.json"),
+			JSON.stringify({ devDependencies: { oxlint: "1.82.0" } }),
+		);
+		fs.writeFileSync(
+			path.join(env.tmpDir, "package-lock.json"),
+			JSON.stringify({
+				lockfileVersion: 3,
+				packages: { "": {}, "node_modules/oxlint": { version: "1.82.0" } },
+			}),
+		);
+		safeSpawnAsync.mockImplementation(async (cmd: string, args: string[]) => {
+			if (args.includes("--version")) {
+				return { status: 0, stdout: "1.82.0", stderr: "" };
+			}
+			expect(cmd).toBe(process.platform === "linux" ? "flock" : "oxlint");
+			expect(args).toContain("--threads=4");
+			expect(args).toContain("--fix");
+			fs.writeFileSync(filePath, "const x = 1;\nconsole.log(x);\n");
+			return { status: 0, stdout: "", stderr: "" };
+		});
+		const result = await runAutofix(
+			filePath,
+			env.tmpDir,
+			() => undefined,
+			() => {},
+			deps() as never,
+		);
+		expect(result.autofixTools).toEqual(["oxlint:1"]);
+		expect(result.changedFiles).toEqual([filePath]);
+	});
 });

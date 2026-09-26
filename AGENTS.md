@@ -585,6 +585,14 @@ ADR: docs/adr/0009-reported-path-attribution.md
 - Managed tools resolve through the registry and sanctioned availability seams.
   Do not hand-roll install, PATH, or package-manager discovery. Use typed
   `SpawnFailure.kind`; repair only `tool-not-found`.
+- This fork routes oxlint lint (including `vp lint`) and autofix through
+  `oxlintInvocation`: four threads and one Linux `flock` slot per
+  `PI_LENS_HOME`, across Pi processes and workspaces. Never unlink its lock
+  file or fall back to unlocked execution on Linux. Waiting counts against
+  the existing 30-second spawn budget; incomplete lint emits a warning.
+  Other platforms and direct shell commands have no cross-process bound.
+  Run `PI_LENS_HOME=$PWD/.probe-home node scripts/test-oxlint-memory-bound.mjs`
+  after `npm run build` to verify real cross-process contention and cleanup.
 - Expected skips remain distinct from clean success and failure. Extend the
   closed `RUNNER_SKIP_REASONS` taxonomy when policy intentionally defers work.
   Preserve the skip reason through runner latency and model-facing delivery.

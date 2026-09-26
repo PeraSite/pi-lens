@@ -17,6 +17,7 @@ import * as nodeFs from "node:fs";
 import * as nodeCrypto from "node:crypto";
 import * as path from "node:path";
 import type { PiLensFlagSource } from "./lens-config.js";
+import { oxlintInvocation } from "./oxlint-invocation.js";
 import {
 	findNearestContaining,
 	normalizeEphemeralMapKey,
@@ -671,13 +672,13 @@ async function tryMarkdownlintFix(
 	);
 }
 
+// Lint and autofix must share the slot: both can load oxlint's type checker.
 async function tryOxlintFix(filePath: string, cwd: string): Promise<number> {
 	const cmd = await resolveToolCommandWithInstallFallback(cwd, "oxlint");
 	if (!cmd) return 0;
 	return detectFileChangedAfterCommand(
 		filePath,
-		cmd,
-		["--fix", filePath],
+		...oxlintInvocation(cmd, ["--fix", filePath]),
 		cwd,
 		[1],
 	);

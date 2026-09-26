@@ -10,6 +10,29 @@ pi-lens gives AI coding agents fast, language-aware feedback while they write/ed
 > for how pi-lens surfaces diagnostics (honesty labels, blockers, read-before-edit)
 > and how to respond.
 
+## Fork: bounded oxlint memory
+
+This fork is based on **v4.3.0**. On Linux, automatic oxlint lint/autofix
+(including `vp lint`) share one `flock` slot across Pi processes and workspaces
+using the same `PI_LENS_HOME`. Each invocation uses four threads. It requires
+util-linux `flock`; unavailable locking never falls back to unbounded execution.
+
+Waiting is included in the existing 30-second check budget. A timed-out or
+otherwise incomplete lint reports a warning, not a clean file. Under sustained
+contention, retry explicitly. Do not delete `oxlint.lock` while checks are active.
+
+This reduces overlapping type-checker memory, not the memory of one check or
+total work. It does **not** constrain direct `bunx`, LSPs, oxfmt, older running
+pi-lens instances, other users, or instances with a different `PI_LENS_HOME`.
+Non-Linux platforms retain direct execution with four threads.
+
+Regression check (after `npm ci --ignore-scripts && npm run build`):
+
+```sh
+PI_LENS_HOME=$PWD/.probe-home node scripts/test-oxlint-memory-bound.mjs
+```
+
+
 ## What It Does
 
 - LSP diagnostics and navigation across supported languages

@@ -9,6 +9,7 @@
 
 import * as path from "node:path";
 import { findLocalBinUpwards } from "../../package-manager.js";
+import { oxlintInvocation } from "../../oxlint-invocation.js";
 import { pathsEqual } from "../../path-utils.js";
 import { safeSpawnAsync } from "../../safe-spawn.js";
 import { resolveRunnerCwd } from "../../tool-cwd.js";
@@ -105,6 +106,8 @@ const oxlintRunner: RunnerDefinition = {
 	appliesTo: ["jsts"],
 	priority: PRIORITY.LINT_SECONDARY,
 	skipTestFiles: false,
+	// Let safeSpawn finish its 30s wait+run budget and process-tree teardown first.
+	timeoutMs: 35000,
 
 	async run(ctx: DispatchContext): Promise<RunnerResult> {
 		const cwd = resolveRunnerCwd(ctx, "oxlint");
@@ -135,8 +138,10 @@ const oxlintRunner: RunnerDefinition = {
 		}
 
 		// Run oxlint (or Vite+'s vp lint wrapper) on the file.
-		const result = await safeSpawnAsync(cmd, args, {
+		const [spawnCommand, spawnArgs] = oxlintInvocation(cmd, args);
+		const result = await safeSpawnAsync(spawnCommand, spawnArgs, {
 			cwd,
+			resourceLabel: "oxlint",
 			timeout: 30000,
 			maxOutputBytes: MAX_OXLINT_OUTPUT_BYTES,
 		});
@@ -189,7 +194,31 @@ const oxlintRunner: RunnerDefinition = {
 			},
 			{ parseOutput: parsedOutput },
 		);
-		if (parsedRun.skipped) return parsedRun.skipped;
+		if (parsedRun.skipped) {
+			const message =
+				"oxlint did not complete (the 30s budget includes waiting for the shared slot); diagnostics unavailable. Retry the check.";
+			return {
+				status: "failed",
+				semantic: "warning",
+				failureKind: result.failure ?? "invocation",
+				failureMessage: (result.error?.message || stderr || message).slice(
+					0,
+					200,
+				),
+				diagnostics: [
+					{
+						id: "oxlint:incomplete",
+						tool: "oxlint",
+						filePath: ctx.filePath,
+						line: 1,
+						column: 1,
+						severity: "warning",
+						semantic: "warning",
+						message,
+					},
+				],
+			};
+		}
 
 		if (parsedRun.diagnostics.includes(OXLINT_NO_FILES)) {
 			// Real captured bytes show oxlint exits

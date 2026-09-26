@@ -567,9 +567,20 @@ describe("oxlint runner", () => {
 					hasTool: async () => false,
 				} as never);
 
-				expect(outcome.status).toBe(expectedStatus);
+				if (expectedDegradation === "runner-empty-result") {
+					expect(outcome.status).toBe("failed");
+					expect(outcome.diagnostics[0]).toMatchObject({
+						id: "oxlint:incomplete",
+						severity: "warning",
+					});
+					expect(outcome.failureKind).toBe(
+						"failure" in spawnResult ? spawnResult.failure : "invocation",
+					);
+				} else {
+					expect(outcome.status).toBe(expectedStatus);
+					expect(outcome.failureKind).toBe(expectedFailureKind);
+				}
 				expect(outcome.skipReason).toBe(expectedSkipReason);
-				expect(outcome.failureKind).toBe(expectedFailureKind);
 				const degradationKinds = logLatency.mock.calls
 					.map(
 						([entry]) =>
@@ -630,8 +641,8 @@ describe("oxlint runner", () => {
 
 			expect(ensureTool).toHaveBeenCalledWith("oxlint");
 			expect(safeSpawnAsync).toHaveBeenCalledWith(
-				"oxlint",
-				expect.arrayContaining(["--format", "json", filePath]),
+				process.platform === "linux" ? "flock" : "oxlint",
+				expect.arrayContaining(["--format", "json", filePath, "--threads=4"]),
 				// #2100: the cap is what makes `outputTruncated` reachable at all.
 				expect.objectContaining({
 					timeout: 30000,
@@ -677,8 +688,8 @@ describe("oxlint runner", () => {
 			} as never);
 
 			expect(safeSpawnAsync).toHaveBeenCalledWith(
-				"oxlint",
-				expect.arrayContaining(["--format", "json", filePath]),
+				process.platform === "linux" ? "flock" : "oxlint",
+				expect.arrayContaining(["--format", "json", filePath, "--threads=4"]),
 				expect.objectContaining({ cwd: env.tmpDir }),
 			);
 		} finally {
@@ -877,8 +888,8 @@ describe("oxlint runner", () => {
 				expect.objectContaining({ timeout: 5000 }),
 			);
 			expect(safeSpawnAsync).toHaveBeenCalledWith(
-				"oxlint",
-				expect.arrayContaining(["--format", "json", filePath]),
+				process.platform === "linux" ? "flock" : "oxlint",
+				expect.arrayContaining(["--format", "json", filePath, "--threads=4"]),
 				// #2100: the cap is what makes `outputTruncated` reachable at all.
 				expect.objectContaining({
 					timeout: 30000,
@@ -1266,10 +1277,11 @@ describe("oxlint runner", () => {
 				hasTool: async () => false,
 			} as never);
 
-			// The shared #1994 outcome gate owns process failures. It records the
-			// degradation and returns an unconfirmed skip, never the expected-policy
-			// reason that would suppress failure accounting.
-			expect(result.status).toBe("skipped");
+			// The shared outcome gate still records the degradation; the runner also
+			// discloses incomplete checks rather than hiding slot contention as a skip.
+			expect(result.status).toBe("failed");
+			expect(result.failureKind).toBe("timeout");
+			expect(result.diagnostics[0]?.message).toContain("did not complete");
 			expect(result.skipReason).toBeUndefined();
 			expect(logLatency).toHaveBeenCalledWith(
 				expect.objectContaining({
