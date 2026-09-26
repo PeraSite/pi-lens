@@ -143,7 +143,8 @@ const POPULATION_FILES = [
  * one cwd decision they used to make 23 times over is now made once, inside
  * `probeToolAsync`, where this file admits it by name.
  */
-const EXPECTED_FILES = 79;
+// Oxlint's diagnostic spawn moved into the batch seam; total sites is unchanged.
+const EXPECTED_FILES = 80;
 const EXPECTED_DIRECT_SITES = 130;
 /**
  * Every same-file spawn-routing wrapper call site the scan discovers. Pinned
@@ -499,6 +500,10 @@ const ORIGIN_ADMISSION_ROWS: ReadonlyArray<readonly [string, string]> = [
 	[
 		"clients/dispatch/runners/oxlint.ts#resolveVitePlusCommand:7b703741~dbf27697",
 		"`vp --version` probe inside resolveVitePlusCommand, whose own `cwd` parameter it passes; the checked site is its caller in this file",
+	],
+	[
+		"clients/oxlint-batch.ts#invoke:0343032f~30e7236a",
+		"forwards the oxlint runner's resolveRunnerCwd result without re-resolving after batching; nested-config and project-separation cases in oxlint-batch.test.ts assert the actual spawn cwd",
 	],
 	[
 		"clients/dispatch/runners/psscriptanalyzer.ts#spawnPs:35a0658a~dbf27697",

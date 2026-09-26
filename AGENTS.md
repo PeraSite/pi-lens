@@ -593,6 +593,15 @@ ADR: docs/adr/0009-reported-path-attribution.md
   Other platforms and direct shell commands have no cross-process bound.
   Run `PI_LENS_HOME=$PWD/.probe-home node scripts/test-oxlint-memory-bound.mjs`
   after `npm run build` to verify real cross-process contention and cleanup.
+- Plain-oxlint diagnostics collect at `runOxlintBatched` for 50 ms, at most 32
+  requests. Match command, tool cwd, project/config boundary, turn, and captured
+  abort signal; detach the pending collection before starting any work. Never
+  join an active result with a newer edit. Partition only complete attributable
+  reports; ambiguous coverage retries singles under the original deadline.
+  Source drift invalidates the result. Keep autofix and Vite+ single-file.
+  The collection timer stays referenced until flush clears it so one-shot CLI
+  callers do not exit before their awaited result. `oxlint_batch` latency rows
+  name batch size and outcome; per-file parsers retain failure disclosure.
 - Expected skips remain distinct from clean success and failure. Extend the
   closed `RUNNER_SKIP_REASONS` taxonomy when policy intentionally defers work.
   Preserve the skip reason through runner latency and model-facing delivery.

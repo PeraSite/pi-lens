@@ -17,14 +17,25 @@ This fork is based on **v4.3.0**. On Linux, automatic oxlint lint/autofix
 using the same `PI_LENS_HOME`. Each invocation uses four threads. It requires
 util-linux `flock`; unavailable locking never falls back to unbounded execution.
 
-Waiting is included in the existing 30-second check budget. A timed-out or
-otherwise incomplete lint reports a warning, not a clean file. Under sustained
-contention, retry explicitly. Do not delete `oxlint.lock` while checks are active.
+Concurrent plain-oxlint diagnostic requests in one Pi process collect for up to
+50 ms (32 requests maximum). Only matching command, cwd, project/configuration
+boundary, turn, and cancellation signal share an invocation. File attribution,
+warning severity, and type-aware configuration stay intact. Partial or ambiguous
+reports fall back to individual checks; changed inputs produce an incomplete
+warning, never a cached clean result. Autofix and `vp lint` remain single-file.
 
-This reduces overlapping type-checker memory, not the memory of one check or
-total work. It does **not** constrain direct `bunx`, LSPs, oxfmt, older running
-pi-lens instances, other users, or instances with a different `PI_LENS_HOME`.
-Non-Linux platforms retain direct execution with four threads.
+Collection, lock waiting, execution, and fallback share the existing 30-second
+check budget. A timed-out or otherwise incomplete lint reports a warning, not a
+clean file. Under sustained contention, retry explicitly. Do not delete
+`oxlint.lock` while checks are active. `latency.log` records `oxlint_batch` with
+file count and outcome (`shared`, `individual-fallback`, `source-changed`, or
+`incomplete`).
+
+Serialization bounds overlapping type-checker memory; batching also reduces
+repeated analysis. Neither lowers the memory needed by one analysis. This does
+**not** constrain direct `bunx`, LSPs, oxfmt, older running pi-lens instances,
+other users, or instances with a different `PI_LENS_HOME`. Non-Linux platforms
+batch compatible requests with four threads but have no cross-process lock.
 
 Regression check (after `npm ci --ignore-scripts && npm run build`):
 

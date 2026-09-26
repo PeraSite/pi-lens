@@ -9,9 +9,10 @@
 
 import * as path from "node:path";
 import { findLocalBinUpwards } from "../../package-manager.js";
-import { oxlintInvocation } from "../../oxlint-invocation.js";
+import { runOxlintBatched } from "../../oxlint-batch.js";
 import { pathsEqual } from "../../path-utils.js";
-import { safeSpawnAsync } from "../../safe-spawn.js";
+import { getAmbientAbortSignal, safeSpawnAsync } from "../../safe-spawn.js";
+import { getTurnId } from "../../turn-context.js";
 import { resolveRunnerCwd } from "../../tool-cwd.js";
 import { truncatedByOutputCap } from "../../spawn-output-cap.js";
 import {
@@ -30,12 +31,6 @@ import {
 	resolveToolCommandWithInstallFallback,
 } from "./utils/runner-helpers.js";
 import { finishParsedRun, parseToolRun } from "./utils/tool-failure.js";
-
-// One file's JSON report. Nothing legitimate approaches 8 MiB here, so this is
-// a blast-radius bound on a runaway or wedged oxlint rather than a working
-// limit — the same value MAX_SG_OUTPUT_BYTES and MAX_REPORT_BYTES use, and what
-// makes `outputTruncated` reachable for this runner at all (#2100).
-const MAX_OXLINT_OUTPUT_BYTES = 8 * 1024 * 1024;
 
 const OXLINT_NO_FILES = Symbol("oxlint-no-files");
 const OXLINT_NO_FILES_UNCONFIRMED = Symbol("oxlint-no-files-unconfirmed");
@@ -110,6 +105,8 @@ const oxlintRunner: RunnerDefinition = {
 	timeoutMs: 35000,
 
 	async run(ctx: DispatchContext): Promise<RunnerResult> {
+		const signal = getAmbientAbortSignal();
+		const turnId = getTurnId();
 		const cwd = resolveRunnerCwd(ctx, "oxlint");
 		const policy = getJstsLintPolicyForCwd(cwd);
 		if (!policy.preferredRunners.includes("oxlint")) {
@@ -122,7 +119,7 @@ const oxlintRunner: RunnerDefinition = {
 			cmd = await resolveVitePlusCommand(cwd);
 		}
 		if (cmd) {
-			args = ["lint", "--format", "json", ctx.filePath];
+			args = ["lint", "--format", "json"];
 		} else {
 			// Use ctx.hasTool for async availability check — avoids the synchronous
 			// spawnSync probe that blocks the event loop on first call per cwd.
@@ -131,19 +128,20 @@ const oxlintRunner: RunnerDefinition = {
 			cmd = (await ctx.hasTool(oxlintCmd))
 				? oxlintCmd
 				: await resolveToolCommandWithInstallFallback(cwd, "oxlint");
-			args = ["--format", "json", ctx.filePath];
+			args = ["--format", "json"];
 		}
 		if (!cmd) {
 			return { status: "skipped", diagnostics: [], semantic: "none" };
 		}
 
-		// Run oxlint (or Vite+'s vp lint wrapper) on the file.
-		const [spawnCommand, spawnArgs] = oxlintInvocation(cmd, args);
-		const result = await safeSpawnAsync(spawnCommand, spawnArgs, {
+		const result = await runOxlintBatched({
+			command: cmd,
+			prefix: args,
 			cwd,
-			resourceLabel: "oxlint",
-			timeout: 30000,
-			maxOutputBytes: MAX_OXLINT_OUTPUT_BYTES,
+			projectRoot: ctx.projectRoot ?? ctx.cwd,
+			filePath: ctx.filePath,
+			signal,
+			turnId,
 		});
 
 		// Oxlint exits 0 whenever nothing at ERROR severity was found — that

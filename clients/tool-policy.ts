@@ -3077,7 +3077,7 @@ export function hasVitePlusConfig(cwd: string): boolean {
 // Per https://oxc.rs/docs/guide/usage/linter/config.html, oxlint auto-discovers
 // `.oxlintrc.json`, `.oxlintrc.jsonc`, `oxlint.config.ts`, and `oxlint.config.mts`
 // (in addition to the legacy `oxlint.json` name pi-lens already recognized).
-const OXLINT_CONFIGS = [
+export const OXLINT_CONFIGS = [
 	".oxlintrc.json",
 	".oxlintrc.jsonc",
 	"oxlint.json",

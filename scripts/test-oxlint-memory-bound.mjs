@@ -77,12 +77,12 @@ if (process.argv[2] === "--worker") {
 				`#!${process.execPath}
 const fs = require('node:fs');
 const path = require('node:path');
-const file = process.argv.find((a) => a.endsWith('.ts'));
+const files = process.argv.filter((a) => a.endsWith('.ts'));
 const log = (event) => fs.appendFileSync(${JSON.stringify(events)}, JSON.stringify({event, pid: process.pid, cwd: process.cwd(), args: process.argv.slice(2)})+'\\n');
 log('start');
 setTimeout(() => {
  log('end');
- console.log(JSON.stringify({diagnostics: [{filename: file, message: path.basename(file), code: 'eslint(fixture)', severity: 'warning'}]}));
+ console.log(JSON.stringify({number_of_files: files.length, diagnostics: files.map((file) => ({filename: file, message: path.basename(file), code: 'eslint(fixture)', severity: 'warning'}))}));
 }, 150);
 `,
 				{ mode: 0o755 },
@@ -110,12 +110,19 @@ setTimeout(() => {
 			active += row.event === "start" ? 1 : -1;
 			peak = Math.max(peak, active);
 		}
-		assert.equal(rows.length, 28, "all 14 checks must finish");
+		assert.equal(
+			rows.length,
+			4,
+			"14 checks must finish in two per-host batches",
+		);
 		assert.equal(active, 0);
 		assert.equal(peak, 1, "multiple Pi hosts must not run oxlint concurrently");
-		for (const row of rows) assert.ok(row.args.includes("--threads=4"));
+		for (const row of rows) {
+			assert.ok(row.args.includes("--threads=4"));
+			assert.equal(row.args.filter((arg) => arg.endsWith(".ts")).length, 7);
+		}
 		console.log(
-			"PASS: 14 checks, 2 hosts, 2 workspaces, peak oxlint concurrency = 1; findings preserved",
+			"PASS: 14 checks in 2 batches, 2 hosts, 2 workspaces, peak oxlint concurrency = 1; findings preserved",
 		);
 
 		const { oxlintInvocation } =
