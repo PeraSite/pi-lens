@@ -121,7 +121,7 @@ carries the named admission until then.
 | json | vscode-json-language-server | pull | — | n/a (pull) | 1 | dev+ci |
 | css | vscode-css-language-server | pull | — | n/a (pull) | 1 | dev+ci |
 | html | vscode-html-language-server | pull | — | n/a (pull) | 1 | dev+ci |
-| rust | rust-analyzer | pull | — | n/a (pull) | 1 | dev |
+| rust | rust-analyzer | pull | — | n/a (pull) | 1 | dev+ci |
 | svelte | svelte-language-server | pull | — | n/a (pull) | 1 | dev+ci |
 | deno | deno (alt of typescript) | pull | — | n/a (pull) | 1 | dev+ci |
 | ruby | ruby-lsp | pull | — | n/a (pull) | 1 | ci |
@@ -135,7 +135,7 @@ carries the named admission until then.
 | shell | bash-language-server | push-only | publishes-versioned | direct | 2 | dev+ci |
 | dockerfile | docker-langserver | push-only | publishes-unversioned | direct | 2* | dev+ci |
 | toml | taplo | push-only | publishes-unversioned | direct | 2* | dev+ci |
-| terraform | terraform-ls | push-only | TBD | TBD | 2/3? | dev+ci |
+| terraform | terraform-ls | push-only | publishes-unversioned | direct | 2* | dev+ci |
 | prisma | @prisma/language-server | push-only | publishes-unversioned | direct | 2* | dev+ci |
 | php | intelephense | push-only | publishes-unversioned | empty-first | 2* | dev+ci |
 | zig | zls | push-only | publishes-unversioned | direct | 2* | dev+ci |
@@ -144,7 +144,7 @@ carries the named admission until then.
 | gleam | gleam lsp | push-only | publishes-unversioned | direct | 2* | ci |
 | clojure | clojure-lsp | push-only | publishes-unversioned | direct | 2* | ci |
 | opengrep | opengrep (aux) | push-only | publishes-unversioned | direct | 2* | dev+ci |
-| ast-grep | ast-grep (aux) | push-only | publishes-versioned | direct | 2 | dev+ci |
+| ast-grep | ast-grep (aux) | push-only | silent | direct | 3 | dev+ci |
 | cue | CUE Language Server (cue lsp serve) | push-only | publishes-versioned | direct | 2 | dev+ci |
 
 **Unknown — fixture exists, mode not yet captured.** The toolchain-gated family
@@ -229,4 +229,6 @@ Telemetry only — never a CI gate. Compares each probed server's observed
 marker; a mismatch means the marker may need a human update (#529). `unknown`
 observations are never compared (a slow/absent server is not evidence either way).
 
-_None observed as of the last probe run._
+- **[silent-not-marked]** observed silent on clean transitions but wait-policy/strategies.ts has no silentOnClean marker for "typescript7" — cascade is burning the full in-lane wait it could skip (the pre-#458 situation)
+- **[silent-not-marked]** observed silent on clean transitions but wait-policy/strategies.ts has no silentOnClean marker for "ast-grep" — cascade is burning the full in-lane wait it could skip (the pre-#458 situation)
+- **[silent-not-marked]** observed silent on clean transitions but wait-policy/strategies.ts has no silentOnClean marker for "ast-grep-baseline" — cascade is burning the full in-lane wait it could skip (the pre-#458 situation)
